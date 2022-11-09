@@ -1,19 +1,24 @@
 import numpy as np
 from scipy import integrate
 import matplotlib.pyplot as plt
-from numba import njit
+from numba import njit, vectorize
+
+@vectorize
+def normalized_sinc(x):
+    return 1 if -1e-6 < x < 1e-6 else np.sin(np.pi*x)/(np.pi*x)
 
 def fourier_expansion(f, p, N=10):
 
+    p_recip = 1/p
     max_quad = 10**int(np.log10(N)+2)
-    a0 = .5*integrate.quadrature(f, -p, p, maxiter=max_quad)[0]/p
-    trig_arg = 2*np.pi/p
+    a0 = .5*integrate.quadrature(f, -p, p, maxiter=max_quad)[0]*p_recip
+    trig_arg = 2*np.pi*p_recip
     coeffs = np.zeros((N,2))
 
     for n in range(N):
         abi = \
-            np.array([integrate.quadrature(lambda x: f(x)*np.cos((n+1)*x), -p, p, maxiter=max_quad)[0]/p,
-                      integrate.quadrature(lambda x: f(x)*np.sin((n+1)*x), -p, p, maxiter=max_quad)[0]/p])
+            np.array([integrate.quadrature(lambda x: f(x)*np.cos((n+1)*x), -p, p, maxiter=max_quad)[0]*p_recip,
+                      integrate.quadrature(lambda x: f(x)*np.sin((n+1)*x), -p, p, maxiter=max_quad)[0]*p_recip])
         coeffs[n] = abi
  
     @njit
@@ -21,7 +26,7 @@ def fourier_expansion(f, p, N=10):
         result = a0*np.ones(t.size, dtype=np.float64)
         n = 1
         for (an, bn) in coeffs:
-            result += an*np.cos(trig_arg*n*t) + bn*np.sin(trig_arg*n*t)
+            result += (an*np.cos(trig_arg*n*t) + bn*np.sin(trig_arg*n*t))*normalized_sinc(n/N)
             n += 1
         return result
 
@@ -53,7 +58,7 @@ def fourier_expansion_cis(a0, an, bn, time, p):
     return result
 
 if __name__ == '__main__':
-    func = lambda x: x % np.pi
+    func = lambda x: x
     period = np.pi
 
     func_fourier, fourier_coeffs, a0 = fourier_expansion(func, period, N=100)
