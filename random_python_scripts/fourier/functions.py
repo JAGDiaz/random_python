@@ -2,8 +2,13 @@
 import numpy as np
 from scipy.fft import fft
 import matplotlib.pyplot as plt
+from numba import njit, vectorize, float32, float64
 
 # \omega_N = e^{2i\pi / N}
+
+@vectorize([float32(float32), float64(float64)])
+def normalized_sinc(x):
+    return 1 if x == 0 else np.sin(np.pi*x)/(np.pi*x)
 
 def naive_DFT(f):
     root = np.exp(2j*np.pi / len(f))
@@ -16,6 +21,7 @@ def dec_to_bin(val, digits):
     bin_rep = bin_rep[::-1]
     return int(bin_rep, 2)
 
+@njit
 def discrete_conv(x,y):
     z = np.zeros(shape=x.size+y.size-1, dtype=np.float64)
 
